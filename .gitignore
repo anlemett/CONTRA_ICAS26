@@ -1,0 +1,9 @@
+*.csv
+*.parquet
+*.json
+*.geojson
+*.png
+*.jpg
+*.zip
+code/figures
+
