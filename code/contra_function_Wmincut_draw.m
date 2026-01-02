@@ -1,4 +1,4 @@
-function Wmincut = contra_function_Wmincut_draw(sector_pgon, T, B, cost_polygons)
+function Wmincut = contra_function_Wmincut_draw(sector_pgon, T, B, cost_polygons, adjacent_sectors)
 %contra_function_Wmincut_draw  Draw version of mincut (map + graph).
 % Computes the same shortest-path mincut value as contra_function_Wmincut,
 % and draws:
@@ -7,13 +7,23 @@ function Wmincut = contra_function_Wmincut_draw(sector_pgon, T, B, cost_polygons
 %      boundary-to-boundary closest points.
 %   2) Graph view with highlighted shortest path.
 %
-% Inputs:
-%   sector_pgon   : polyshape (lon/lat)
-%   T, B          : [N x 2] edges in lon/lat (columns: lon, lat)
-%   cost_polygons : polyshape array (lon/lat) of obstacles (may be empty)
+% ADDITIONAL VISUAL DEBUG:
+%   - If Top (T) is a single vertex (one point), mark it with a blue circle.
+%   - If Bottom (B) is a single vertex (one point), mark it with a red circle.
 %
-% Output:
-%   Wmincut       : shortest path length (same scalar as contra_function_Wmincut)
+% OPTIONAL:
+%   adjacent_sectors : already-created adjacent sectors to draw.
+%   Supported formats (any mix):
+%     - polyshape (lon/lat) or polyshape array
+%     - cell array (possibly 2-D) of polyshape
+%     - struct (or cell array of structs) with either:
+%         * fields .lon/.lat (or .Lon/.Lat)
+%         * or GeoJSON-like fields .geometry.coordinates (as from contra_function_create_adjacent_sectors)
+%         * or fields .pgon / .polygon that are polyshape
+
+if nargin < 5
+    adjacent_sectors = [];
+end
 
 % ---------- Projection to equal-azimuth ----------
 [lon_c, lat_c] = centroid(sector_pgon);
@@ -37,6 +47,64 @@ ylabel('Y (equal-azimuth)');
 
 % Sector outline
 plot(sector_pgon_xy, 'FaceAlpha', 0.0, 'LineWidth', 1.5);
+
+% ---------- Adjacent sectors (optional) ----------
+if ~isempty(adjacent_sectors)
+    % Normalize to a 1-D cell list of items
+    if isa(adjacent_sectors, 'polyshape')
+        adjList = arrayfun(@(p)p, adjacent_sectors(:), 'UniformOutput', false);
+    elseif isstruct(adjacent_sectors)
+        adjList = num2cell(adjacent_sectors(:));
+    elseif iscell(adjacent_sectors)
+        adjList = adjacent_sectors(:); % IMPORTANT: flatten 2-D cell arrays (e.g., 4x4)
+    else
+        adjList = {};
+    end
+
+    for iAdj = 1:numel(adjList)
+        item = adjList{iAdj};
+        if isempty(item)
+            continue
+        end
+
+        % Convert to lon/lat polyshape
+        if isa(item,'polyshape')
+            pg_ll = item;
+
+        elseif isstruct(item)
+            % Accept polyshape directly stored in struct
+            if isfield(item,'pgon') && isa(item.pgon,'polyshape')
+                pg_ll = item.pgon;
+            elseif isfield(item,'polygon') && isa(item.polygon,'polyshape')
+                pg_ll = item.polygon;
+            else
+                [lon, lat, ok] = local_extract_lonlat(item);
+                if ~ok
+                    continue
+                end
+                pg_ll = polyshape(lon, lat, 'Simplify', true);
+            end
+
+        else
+            continue
+        end
+
+        if pg_ll.NumRegions <= 0
+            continue
+        end
+
+        % Project and plot in the same XY map
+        V = pg_ll.Vertices; % [lon lat] with possible NaN separators
+        [py, px] = contra_function_spherical_to_eq_azimuth(V(:,2), V(:,1), lat_c, lon_c);
+        pg_xy = polyshape(px, py, 'Simplify', true);
+        if pg_xy.NumRegions <= 0
+            continue
+        end
+
+        plot(pg_xy, 'FaceAlpha', 0.0, 'LineStyle', ':', 'LineWidth', 1.4, ...
+            'EdgeColor', [0.35 0.35 0.35]);
+    end
+end
 
 % Obstacles inside sector (projected/intersected)
 nw = numel(cost_polygons);
@@ -90,7 +158,6 @@ for e = 1:numel(sg)
         % T - B
         [w, pB, pT] = boundary_to_boundary_fun(B_x, B_y, T_x, T_y);
         weights(e) = w;
-        % store endpoints in consistent order with nodes (u=1 is T, v=NG is B)
         p1_xy{e} = pT; % on T
         p2_xy{e} = pB; % on B
 
@@ -107,7 +174,6 @@ for e = 1:numel(sg)
         xo = x_w{u-1}; yo = y_w{u-1};
         [w, pB, pO] = boundary_to_boundary_fun(B_x, B_y, xo, yo);
         weights(e) = w;
-        % store endpoints in consistent order with nodes (u is obstacle, v is B)
         p1_xy{e} = pO; % on obstacle
         p2_xy{e} = pB; % on B
 
@@ -125,14 +191,22 @@ end
 G = graph(sg, tg, weights);
 [short_path, Wmincut] = shortestpath(G, 1, NG);
 
-% ---------- Plot Top/Bottom (ALWAYS after obstacles, before mincut) ----------
-% Top (blue)
+% ---------- Plot Top/Bottom ----------
 plot(T_x, T_y, '-', 'Color', 'b', 'LineWidth', 4);
 text(mean(T_x), mean(T_y), 'T', 'Color', 'b', 'FontWeight', 'bold', 'FontSize', 14);
 
-% Bottom (red)
 plot(B_x, B_y, '-', 'Color', 'r', 'LineWidth', 4);
 text(mean(B_x), mean(B_y), 'B', 'Color', 'r', 'FontWeight', 'bold', 'FontSize', 14);
+
+% Mark single-vertex T/B with circles
+if size(T,1) == 1
+    plot(T_x(1), T_y(1), 'o', 'MarkerSize', 10, 'LineWidth', 2, ...
+        'MarkerEdgeColor', 'b', 'MarkerFaceColor', 'none');
+end
+if size(B,1) == 1
+    plot(B_x(1), B_y(1), 'o', 'MarkerSize', 10, 'LineWidth', 2, ...
+        'MarkerEdgeColor', 'r', 'MarkerFaceColor', 'none');
+end
 
 % -------------- Plot mincut on the MAP as RED DASHED segments ---------------
 if numel(short_path) >= 2
@@ -140,7 +214,6 @@ if numel(short_path) >= 2
         u = short_path(k);
         v = short_path(k+1);
 
-        % locate undirected edge index in (sg,tg) (stored with sg<tg)
         uu = min(u,v);
         vv = max(u,v);
         e = find((sg == uu) & (tg == vv), 1, 'first');
@@ -148,12 +221,9 @@ if numel(short_path) >= 2
             continue
         end
 
-        % p1_xy{e} belongs to node sg(e) side, p2_xy{e} belongs to node tg(e) side.
-        % If we traversed edge in reverse, swap endpoints so it still draws correctly.
         P1 = p1_xy{e};
         P2 = p2_xy{e};
         if u ~= sg(e)
-            % traversing from tg -> sg
             tmp = P1; P1 = P2; P2 = tmp;
         end
 
@@ -169,7 +239,6 @@ title('Graph for shortest path');
 H = plot(G, 'Layout', 'layered', 'EdgeLabel', G.Edges.Weight);
 highlight(H, short_path, 'EdgeColor', 'r', 'LineWidth', 2);
 
-% Nicer node labels (T, obstacles, B)
 try
     nodeNames = strings(1, NG);
     nodeNames(1) = "T";
@@ -179,21 +248,71 @@ try
     nodeNames(NG) = "B";
     H.NodeLabel = cellstr(nodeNames);
 catch
-    % ignore if plotting backend does not support
 end
 
 end
 
 
 % ======================================================================
-% Geometry helpers (used by both mincut and draw)
+% Local helper: extract lon/lat from several struct formats
+% ======================================================================
+
+function [lon, lat, ok] = local_extract_lonlat(s)
+% Supports:
+%   - s.lon / s.lat or s.Lon / s.Lat
+%   - GeoJSON-like s.geometry.coordinates (as used in contra_function_create_adjacent_sectors)
+
+lon = [];
+lat = [];
+ok  = false;
+
+if ~isstruct(s)
+    return
+end
+
+if isfield(s,'lon') && isfield(s,'lat') && isnumeric(s.lon) && isnumeric(s.lat)
+    lon = s.lon(:);
+    lat = s.lat(:);
+    ok = (numel(lon) >= 3) && (numel(lat) >= 3);
+    return
+end
+
+if isfield(s,'Lon') && isfield(s,'Lat') && isnumeric(s.Lon) && isnumeric(s.Lat)
+    lon = s.Lon(:);
+    lat = s.Lat(:);
+    ok = (numel(lon) >= 3) && (numel(lat) >= 3);
+    return
+end
+
+if isfield(s,'geometry') && isstruct(s.geometry) && isfield(s.geometry,'coordinates')
+    coords = s.geometry.coordinates;
+    if iscell(coords)
+        coords = coords{1};
+    end
+
+    if isnumeric(coords) && ndims(coords) == 3
+        lon = squeeze(coords(:,:,1));
+        lat = squeeze(coords(:,:,2));
+        lon = lon(:);
+        lat = lat(:);
+        ok = (numel(lon) >= 3) && (numel(lat) >= 3);
+        return
+    elseif isnumeric(coords) && size(coords,2) == 2
+        lon = coords(:,1);
+        lat = coords(:,2);
+        ok = (numel(lon) >= 3) && (numel(lat) >= 3);
+        return
+    end
+end
+
+end
+
+
+% ======================================================================
+% Geometry helpers
 % ======================================================================
 
 function [d, p1, p2] = boundary_to_boundary_fun(x1, y1, x2, y2)
-% Returns:
-%   d  : minimum distance between boundaries
-%   p1 : closest point [x y] on boundary 1
-%   p2 : closest point [x y] on boundary 2
 
 N1 = length(x1);
 N2 = length(x2);
@@ -247,7 +366,6 @@ end
 end
 
 function [d, x1, x2] = line_to_line(v1, v2, w1, w2)
-% Minimum distance between two 2D segments (v1-v2) and (w1-w2)
 
 x1v = zeros(4,2); x1v(1,:) = v1; x1v(2,:) = v2;
 x2v = zeros(4,2); x2v(3,:) = w1; x2v(4,:) = w2;
@@ -266,7 +384,6 @@ x2 = x2v(idx,:);
 end
 
 function [d, x] = point_to_line(pt, v1, v2)
-% Distance from point pt to segment v1-v2, and closest point x on segment
 
 a = pt - v1;
 b = v2 - v1;

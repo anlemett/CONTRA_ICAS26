@@ -1,4 +1,4 @@
-function AFCR_i = contra_function_AFCR_j(cost_obstacles, sector_ab, a_band, flows_j)
+function AFCR_i = contra_function_AFCR_j(cost_obstacles, sector_ab, a_band, flows_j, adjacent_sectors)
 % Compute AFCR_i for each altitude band i and each triplet (flow).
 % Expects cost_obstacles as a cell array of structs with field .pgon (polyshape).
 
@@ -26,6 +26,8 @@ end
 
 for i = 1:nab
 
+    h = a_band(i);
+
     if isempty(flows_j{i})
         continue
     end
@@ -37,7 +39,7 @@ for i = 1:nab
 
     for j = 1:(nj/2)
 
-        Wmincut = contra_function_Wmincut(sector_ab{i}, flows_j{i}(j).T, flows_j{i}(j).B, obs_poly);
+        Wmincut = contra_function_Wmincut_wrapper(sector_ab{i}, flows_j{i}(j).T, flows_j{i}(j).B, obs_poly, h, adjacent_sectors);
 
         % Prefer stored baseline if present, otherwise compute it
         if isfield(flows_j{i}(j), 'Omincut') && ~isempty(flows_j{i}(j).Omincut)

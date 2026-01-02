@@ -22,6 +22,10 @@ sector_pgon_xy = polyshape(sector_x, sector_y);
 [T_y, T_x] = contra_function_spherical_to_eq_azimuth(T(:,2), T(:,1), lat_c, lon_c);
 [B_y, B_x] = contra_function_spherical_to_eq_azimuth(B(:,2), B(:,1), lat_c, lon_c);
 
+% Robustness: remove NaN/Inf separators (polyshape vertices may contain NaNs)
+[T_x, T_y] = local_drop_nan_xy(T_x, T_y);
+[B_x, B_y] = local_drop_nan_xy(B_x, B_y);
+
 nw = numel(cost_polygons);
 
 % Select obstacle parts that lie within the sector
@@ -38,6 +42,10 @@ for i = 1:nw
 
     if polyout_ll.NumRegions > 0
         w_vertices = cost_polygons(i).Vertices;
+        w_vertices = w_vertices(all(isfinite(w_vertices),2),:); % drop NaN rows
+        if size(w_vertices,1) < 3
+            continue
+        end
 
         [y, x] = contra_function_spherical_to_eq_azimuth(w_vertices(:,2), w_vertices(:,1), lat_c, lon_c);
         w_pgon_xy = polyshape(x, y);
@@ -45,9 +53,14 @@ for i = 1:nw
         polyout_xy = intersect(sector_pgon_xy, w_pgon_xy);
 
         if polyout_xy.NumRegions > 0
+            V = polyout_xy.Vertices;
+            V = V(all(isfinite(V),2),:); % drop NaN separators (multi-ring)
+            if size(V,1) < 2
+                continue
+            end
             count = count + 1;
-            x_w{count} = polyout_xy.Vertices(:,1);
-            y_w{count} = polyout_xy.Vertices(:,2);
+            x_w{count} = V(:,1);
+            y_w{count} = V(:,2);
         end
     end
 end
@@ -68,6 +81,7 @@ weights(tg == NG & sg == 1) = boundary_to_boundary_fun(B_x, B_y, T_x, T_y);
 % Distances involving obstacle nodes
 for i = 1:NW
     xi = x_w{i}; yi = y_w{i};
+    [xi, yi] = local_drop_nan_xy(xi, yi);
 
     % T -> obstacle i (node i+1) only if no intersection
     if isempty(polyxpoly(T_x, T_y, xi, yi))
@@ -86,9 +100,14 @@ for i = 1:NW
     % obstacle-obstacle distances
     for j = (i+1):NW
         xj = x_w{j}; yj = y_w{j};
+        [xj, yj] = local_drop_nan_xy(xj, yj);
         weights((sg == (i+1)) & (tg == (j+1))) = boundary_to_boundary_fun(xj, yj, xi, yi);
     end
 end
+
+% Robustness: convert invalid weights to Inf (unusable edges)
+bad = ~isfinite(weights) | (weights < 0);
+weights(bad) = Inf;
 
 % Build graph and compute shortest path from T (1) to B (NG)
 G = graph(sg, tg, weights);
@@ -98,8 +117,22 @@ end
 
 %% ========================== Local helpers ===============================
 
+function [x,y] = local_drop_nan_xy(x,y)
+% Remove NaN/Inf separators from polyline coordinate arrays.
+if isempty(x) || isempty(y)
+    return
+end
+x = x(:); y = y(:);
+m = isfinite(x) & isfinite(y);
+x = x(m);
+y = y(m);
+end
+
 function d = boundary_to_boundary_fun(x1, y1, x2, y2)
 % Distance between two polylines (boundaries) in 2D.
+
+[x1,y1] = local_drop_nan_xy(x1,y1);
+[x2,y2] = local_drop_nan_xy(x2,y2);
 
 N1 = numel(x1);
 N2 = numel(x2);
@@ -122,7 +155,9 @@ if N1 == 1
             w2 = [x2(j+1), y2(j+1)];
         end
         d_new = point_to_line(pt, w1, w2);
-        d = min(d, d_new);
+        if isfinite(d_new)
+            d = min(d, d_new);
+        end
     end
 
 elseif N2 == 1
@@ -136,7 +171,9 @@ elseif N2 == 1
             v2 = [x1(i+1), y1(i+1)];
         end
         d_new = point_to_line(pt, v1, v2);
-        d = min(d, d_new);
+        if isfinite(d_new)
+            d = min(d, d_new);
+        end
     end
 
 else
@@ -147,9 +184,15 @@ else
             w1 = [x2(j),   y2(j)];
             w2 = [x2(j+1), y2(j+1)];
             d_new = line_to_line(v1, v2, w1, w2);
-            d = min(d, d_new);
+            if isfinite(d_new)
+                d = min(d, d_new);
+            end
         end
     end
+end
+
+if isinf(d)
+    d = NaN;
 end
 
 end
@@ -160,7 +203,7 @@ d1 = point_to_line(v1, w1, w2);
 d2 = point_to_line(v2, w1, w2);
 d3 = point_to_line(w1, v1, v2);
 d4 = point_to_line(w2, v1, v2);
-d = min([d1 d2 d3 d4]);
+d = min([d1 d2 d3 d4], [], 'omitnan');
 end
 
 function d = point_to_line(pt, v1, v2)

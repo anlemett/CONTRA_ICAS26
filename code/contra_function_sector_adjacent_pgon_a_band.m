@@ -34,7 +34,8 @@ for i = 1:N
         end
 
         try
-            pj = polyshape(lon, lat, 'Simplify', true, 'KeepCollinearPoints', false);
+            %pj = polyshape(lon, lat, 'Simplify', true, 'KeepCollinearPoints', false);
+            pj = polyshape(lon, lat, 'Simplify', false, 'KeepCollinearPoints', true);
         catch
             continue
         end
@@ -83,7 +84,8 @@ for i = 1:M
         end
 
         try
-            pj = polyshape(lon, lat, 'Simplify', true, 'KeepCollinearPoints', false);
+            %pj = polyshape(lon, lat, 'Simplify', true, 'KeepCollinearPoints', false);
+            pj = polyshape(lon, lat, 'Simplify', false, 'KeepCollinearPoints', true);
         catch
             continue
         end

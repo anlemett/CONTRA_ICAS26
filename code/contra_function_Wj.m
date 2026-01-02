@@ -1,5 +1,9 @@
 function [Wj, Wij, total_ac] = contra_function_Wj(t_ini, t_fin, p_in, p_out, a_band, flows_j, AC_in)
 
+fprintf('DEBUG contra_function_Wj: entered\n');
+fprintf('  flows_j cells = %d\n', numel(flows_j));
+fprintf('  nonEmpty flows_j cells = %d\n', sum(~cellfun(@isempty, flows_j)));
+
 % Collect all possible triplets robustly (avoid empty cells)
 nonEmpty = ~cellfun(@isempty, flows_j);
 if ~any(nonEmpty)
@@ -20,6 +24,12 @@ Wij = zeros(nab, ntri);
 
 % Aircraft that fly sector k in the time interval [t_ini, t_fin]
 ac_idx = (t_ini <= p_out(:,1)) & (t_fin >= p_in(:,1));
+
+fprintf('DEBUG contra_function_Wj:\n');
+fprintf("total AC_in = %d\n", numel(AC_in));
+fprintf("finite p_in = %d, finite p_out = %d\n", sum(isfinite(p_in(:,1))), sum(isfinite(p_out(:,1))));
+fprintf("ac_idx true = %d\n", sum(ac_idx));
+
 
 total_ac = sum(ac_idx);
 
@@ -44,6 +54,10 @@ for a = 1:total_ac
 end
 
 total_ac = sum(Wij, 'all');
+
+fprintf('DEBUG contra_function_Wj:\n');
+fprintf('  nonzero Wij entries = %d\n', nnz(Wij));
+fprintf('  total_ac (from Wij) = %d\n', total_ac);
 
 if total_ac > 0
     Wj  = sum(Wij, 1) / total_ac;

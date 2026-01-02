@@ -1,4 +1,4 @@
-function AFCR_i = contra_function_AFCR_j_onlyweigths(cost_obstacles, sector_ab, flows_j, Wij, a_band)
+function AFCR_i = contra_function_AFCR_j_onlyweigths(cost_obstacles, sector_ab, flows_j, Wij, a_band, adjacent_sectors)
 % Compute AFCR_i for each altitude band i and triplet j.
 % Expects cost_obstacles as a cell array of structs with field .pgon (polyshape).
 
@@ -34,7 +34,7 @@ for i = vec_ab'
                 continue
             end
 
-            Wmincut = contra_function_Wmincut_wrapper(sector_ab{i}, flows_j{i}(j1).T, flows_j{i}(j1).B, obs_poly, h);
+            Wmincut = contra_function_Wmincut_wrapper(sector_ab{i}, flows_j{i}(j1).T, flows_j{i}(j1).B, obs_poly, h, adjacent_sectors);
             Omincut = flows_j{i}(j1).Omincut;
 
             if isempty(Omincut) || ~isfinite(Omincut) || Omincut <= 0

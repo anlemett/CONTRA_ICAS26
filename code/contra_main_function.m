@@ -225,7 +225,7 @@ for i = 1:numel(uWin)
     t0 = epoch_ts_w(idx);
     [t0s, ord] = sort(t0);
     AC(i).id = id0;
-    AC(i).WP = [t0s, lon_w(idx);]; %#ok<NBRAK>
+    AC(i).WP = [t0s, lon_w(idx)];
     % Fix construction (expand columns cleanly)
     lon_i = lon_w(idx); lon_i = lon_i(ord);
     lat_i = lat_w(idx); lat_i = lat_i(ord);
@@ -388,7 +388,7 @@ if total_ac == 0
 end
 
 ASCR{1}(1, 1) = contra_function_ASCR_k( ...
-    sector_ab, flows_j, cost_obstacles, Wij, a_band);
+    sector_ab, flows_j, cost_obstacles, Wij, a_band, adjacent_sectors);
 
 end
 
