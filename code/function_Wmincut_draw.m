@@ -22,7 +22,7 @@ sector_pgon_xy = polyshape(sector_x, sector_y);
 [T_y, T_x] = function_spherical_to_eq_azimuth(T(:,2), T(:,1), lat_c, lon_c);
 [B_y, B_x] = function_spherical_to_eq_azimuth(B(:,2), B(:,1), lat_c, lon_c);
 
-f1=figure, hold on
+f1=figure; hold on
 plot(sector_pgon_xy)
 plot(B_x, B_y, 'Linewidth', 2, 'Color', 'r', 'Marker', 'x')
 plot(T_x, T_y, 'Linewidth', 2, 'Color', 'b', 'Marker', 'o')
@@ -112,7 +112,7 @@ axis off;
         plot_mincut_segments(short_path, sg, tg, weights, NG, T_x, T_y, B_x, B_y, x_w, y_w);
 
         
-        f2=figure
+        f2=figure;
         H = plot(G,'EdgeLabel',G.Edges.Weight,'Layout','layered');
         highlight(H,short_path,'EdgeColor','r')
 % %     end

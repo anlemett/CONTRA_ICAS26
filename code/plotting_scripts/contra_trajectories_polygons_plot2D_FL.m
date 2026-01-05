@@ -2,15 +2,13 @@ clear; clc;
 
 %% ============================ SETTINGS ==================================
 % Files
-traj_file = fullfile('.', 'code_input', 'original_all_flights_in_ESMM31_day28.csv');
+traj_file = fullfile('.', 'code_input', 'original_all_flights_in_ESMM31_day28_extended.csv');
+%traj_file = fullfile('.', 'code_input', 'original_all_flights_in_ESMM31_day28.csv');
 cost_file = fullfile('.', 'code_input', 'grid_era5_smoothed_day28_ESMM31.csv');
 
 % Target flight level and band (feet) for selecting flights + styling segments
 TARGET_FL        = 390;
 ALT_HALF_BAND_FT = 500;      % ±500 ft
-
-% Keep flight if >= this fraction of its points (across whole day) are inside band
-MIN_FRACTION_IN_BAND = 0.80;
 
 % Cost obstacle settings
 threshold  = 0.7;            % cost > threshold => obstacle cell
@@ -25,7 +23,7 @@ fig_root_base = fullfile('.', 'figures');
 fig_root_traj = fullfile(fig_root_base, 'Trajectories_Cost_obstacles');
 
 % Add threshold-level subfolder
-thr_token = regexprep(sprintf('thr_%0.3f', threshold), '\.', 'p');   % e.g., thr_0p200
+thr_token = regexprep(sprintf('thr_%0.3f', threshold), '\.', 'p');   % e.g., thr_0p700
 fig_root_thr = fullfile(fig_root_traj, thr_token);
 
 % FL folder under threshold folder
@@ -64,7 +62,7 @@ lines = splitlines(strtrim(raw_data));
 tokens = {};
 for i = 1:numel(lines)
     if strlength(strtrim(lines(i))) == 0, continue; end
-    tokens = [tokens; cellstr(split(strtrim(lines(i))))]; %#ok<AGROW>
+    tokens = [tokens; cellstr(split(strtrim(lines(i))))];
 end
 tokens = tokens(~cellfun(@isempty, tokens));
 
@@ -137,17 +135,54 @@ alt_ft_all    = alt_ft_all(good);
 fprintf("Traj: rows read (valid):    %d\n", numel(lon_all));
 fprintf("Traj: unique flights:       %d\n", numel(unique(flight_id_all)));
 
-% Decide which flights to keep based on altitude band fraction (day-wide)
+% Datetime for all points (used for day0 and filtering)
+ts_all = datetime(epoch_ts_all, 'ConvertFrom', 'posixtime', 'TimeZone', tz);
+day0   = dateshift(min(ts_all), 'start', 'day');
+
+%% ====== filtering + inside-sector constraint (flight-level) ======
+% Solid blue in plots = segment where:
+%   - both endpoints are in-hour
+%   - both endpoints are inside altitude band
+%   - both endpoints are inside sector polygon
 in_band_alt_all = (alt_ft_all >= alt_low_ft) & (alt_ft_all <= alt_high_ft);
+in_sector_all   = inpolygon(lon_all, lat_all, sector_lon, sector_lat);
 
 uIDs = unique(flight_id_all, 'stable');
 keep_flight = false(size(uIDs));
+
 for i = 1:numel(uIDs)
     idx = (flight_id_all == uIDs(i));
-    n = nnz(idx);
-    if n == 0, continue; end
-    keep_flight(i) = (nnz(in_band_alt_all(idx)) / n) >= MIN_FRACTION_IN_BAND;
+    if nnz(idx) < 2
+        continue
+    end
+
+    ii = find(idx);
+    [~, ord] = sort(epoch_ts_all(ii));
+    ii = ii(ord);
+
+    tfi = ts_all(ii);
+    inBandPts = in_band_alt_all(ii);
+    inSecPts  = in_sector_all(ii);
+
+    segInBand = inBandPts(1:end-1) & inBandPts(2:end);
+    segInSec  = inSecPts(1:end-1)  & inSecPts(2:end);
+
+    hasSolidBlueSomeHour = false;
+    for h = 0:23
+        t0 = day0 + hours(h);
+        t1 = day0 + hours(h+1);
+        inHrPts = (tfi >= t0) & (tfi < t1);
+        segInHr = inHrPts(1:end-1) & inHrPts(2:end);
+
+        if any(segInHr & segInBand & segInSec)
+            hasSolidBlueSomeHour = true;
+            break
+        end
+    end
+
+    keep_flight(i) = hasSolidBlueSomeHour;
 end
+
 keptIDs = uIDs(keep_flight);
 
 fprintf("Traj: altitude band:        FL%d ± %d ft => [%g..%g] ft\n", TARGET_FL, ALT_HALF_BAND_FT, alt_low_ft, alt_high_ft);
@@ -155,7 +190,7 @@ fprintf("Traj: kept flights:         %d\n", numel(keptIDs));
 fprintf("Traj: dropped flights:      %d\n", numel(uIDs) - numel(keptIDs));
 
 if isempty(keptIDs)
-    error("No trajectories satisfy the altitude band criterion. Lower MIN_FRACTION_IN_BAND or widen ALT_HALF_BAND_FT.");
+    error("No trajectories produce a SOLID BLUE inside-sector in-hour segment. Widen ALT_HALF_BAND_FT or adjust TARGET_FL.");
 end
 
 % Keep ALL points of kept flights (full trajectories)
@@ -166,9 +201,10 @@ epoch_ts  = epoch_ts_all(keep_rows_tr);
 lat_tr    = lat_all(keep_rows_tr);
 lon_tr    = lon_all(keep_rows_tr);
 alt_ft_tr = alt_ft_all(keep_rows_tr);
+ts_tr     = ts_all(keep_rows_tr);
 
-ts_tr = datetime(epoch_ts, 'ConvertFrom', 'posixtime', 'TimeZone', tz);
-day0  = dateshift(min(ts_tr), 'start', 'day');
+% Inside-sector mask for kept flights (point-wise)
+in_sector_tr = inpolygon(lon_tr, lat_tr, sector_lon, sector_lat);
 
 %% ==================== Read COST GRID (comma-delimited) ==================
 if ~exist(cost_file, 'file')
@@ -219,8 +255,9 @@ for h = 0:23
 end
 
 %% ===================== Global plot limits / aspect ======================
-x_all = [sector_lon(:); lon_tr(:); Tc.longitude(:)];
-y_all = [sector_lat(:); lat_tr(:); Tc.latitude(:)];
+% Use sector bounds (inside-sector plotting)
+x_all = sector_lon(:);
+y_all = sector_lat(:);
 
 xlim_all = [min(x_all), max(x_all)];
 ylim_all = [min(y_all), max(y_all)];
@@ -230,12 +267,14 @@ if isnan(meanLatAll), meanLatAll = 57; end
 asp = [1/cosd(meanLatAll), 1, 1];
 
 %% ========================== Hourly plots ================================
+% Only INSIDE-SECTOR segments are drawn.
 % Color encodes time:
 %   - Blue  => within this hour
 %   - Grey  => outside this hour
 % Dash encodes altitude band:
 %   - Solid => inside altitude band
 %   - Dashed=> outside altitude band
+
 warnState = warning('off', 'MATLAB:polyshape:repairedBySimplify');
 cleanupWarn = onCleanup(@() warning(warnState));
 
@@ -243,8 +282,27 @@ for h = 0:23
     t0 = day0 + hours(h);
     t1 = day0 + hours(h+1);
 
-    in_hour = (ts_tr >= t0) & (ts_tr < t1);
-    flights_in_hour = unique(flight_id(in_hour), 'stable');
+    % Flights with at least one INSIDE-SECTOR segment in this hour (time-sorted)
+    candidates = unique(flight_id((ts_tr >= t0) & (ts_tr < t1)), 'stable');
+    keep = false(size(candidates));
+
+    for k = 1:numel(candidates)
+        id = candidates(k);
+
+        idx = (flight_id == id);
+        if nnz(idx) < 2
+            continue
+        end
+
+        ii = find(idx);
+        [~, ord] = sort(epoch_ts(ii));
+        ii = ii(ord);
+
+        pts = (ts_tr(ii) >= t0) & (ts_tr(ii) < t1) & in_sector_tr(ii) & (alt_ft_tr(ii) >= alt_low_ft) & (alt_ft_tr(ii) <= alt_high_ft);
+        keep(k) = any(pts(1:end-1) & pts(2:end));
+    end
+
+    flights_in_hour = candidates(keep);
 
     % cost in hour (STRING KEY match) + exact altitude
     key0 = hour_keys(h+1);
@@ -346,14 +404,20 @@ for h = 0:23
 
         inHrPts   = (ts_tr(iiAll) >= t0) & (ts_tr(iiAll) < t1);
         inBandPts = (alt_ft_tr(iiAll) >= alt_low_ft) & (alt_ft_tr(iiAll) <= alt_high_ft);
+        inSecPts  = in_sector_tr(iiAll);
 
-        seg_inHr   = inHrPts(1:end-1)    & inHrPts(2:end);
-        seg_inBand = inBandPts(1:end-1)  & inBandPts(2:end);
+        seg_inHr   = inHrPts(1:end-1)   & inHrPts(2:end);
+        seg_inBand = inBandPts(1:end-1) & inBandPts(2:end);
+        seg_inSec  = inSecPts(1:end-1)  & inSecPts(2:end);
 
-        local_plot_runs(ax, lon_tr, lat_tr, iiAll,  seg_inHr &  seg_inBand, '-',  [0 0.4470 0.7410], 2.6); % blue solid
-        local_plot_runs(ax, lon_tr, lat_tr, iiAll,  seg_inHr & ~seg_inBand, '--', [0 0.4470 0.7410], 2.2); % blue dashed
-        local_plot_runs(ax, lon_tr, lat_tr, iiAll, ~seg_inHr &  seg_inBand, '-',  [0.55 0.55 0.55], 1.8);  % grey solid
-        local_plot_runs(ax, lon_tr, lat_tr, iiAll, ~seg_inHr & ~seg_inBand, '--', [0.55 0.55 0.55], 1.8);  % grey dashed
+        % Only inside-sector segments
+        seg = seg_inSec;
+
+        local_plot_runs(ax, lon_tr, lat_tr, iiAll,  seg &  seg_inHr &  seg_inBand, '-',  [0 0.4470 0.7410], 2.6); % blue solid
+        local_plot_runs(ax, lon_tr, lat_tr, iiAll,  seg &  seg_inHr & ~seg_inBand, '--', [0 0.4470 0.7410], 2.2); % blue dashed
+        local_plot_runs(ax, lon_tr, lat_tr, iiAll,  seg & ~seg_inHr &  seg_inBand, '-',  [0.55 0.55 0.55], 1.8);  % grey solid
+        local_plot_runs(ax, lon_tr, lat_tr, iiAll,  seg & ~seg_inHr & ~seg_inBand, '--', [0.55 0.55 0.55], 1.8);  % grey dashed
+
     end
 
     % Sector boundary
@@ -370,7 +434,7 @@ for h = 0:23
         TARGET_FL, ALT_HALF_BAND_FT, threshold, datestr(t0,'HH:MM'), datestr(t1,'HH:MM'), numel(polygons), numel(flights_in_hour)), ...
         'Interpreter','none');
 
-    fname = sprintf('traj_cost_FL%d_%s_%02d00_%02d00.png', ...
+    fname = sprintf('traj_cost_inSector_FL%d_%s_%02d00_%02d00.png', ...
         TARGET_FL, datestr(day0,'yyyymmdd'), h, mod(h+1,24));
     exportgraphics(fig, fullfile(fig_root, fname), 'Resolution', dpi);
     close(fig);

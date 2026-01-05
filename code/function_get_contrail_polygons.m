@@ -1,10 +1,17 @@
-% Read weather data and store it as polygons
+% INPUT:
+%   LOWER_FL, UPPER_FL : flight levels (inclusive range), e.g. 300 and 340
+%   t0_dt, t1_dt       : datetimes
+%
+% OUTPUT:
+%   cost_obstacles is cell(T,1), where T is the number of hourly timestamps
+%   between t0_dt and t1_dt (inclusive, hour-aligned).
+%   Each cost_obstacles{t} is a cell(1, num_poly). Each entry is a struct:
+%       .pgon     (polyshape in lon/lat degrees)
+%       .altitude (ft)
+function cost_obstacles = function_get_contrail_polygons(LOWER_FL, UPPER_FL, t0_dt, t1_dt)
 
-function cost_obstacles = function_get_contrail_polygons(TARGET_FL, t0_dt, t1_dt)
-
-target_ft   = TARGET_FL * 100;
-
-COST_ALT_FT = target_ft;
+lower_ft = LOWER_FL * 100;
+upper_ft = UPPER_FL * 100;
 
 thisFileDir = fileparts(mfilename('fullpath'));
 cost_file = fullfile(thisFileDir, 'code_input', 'grid_era5_smoothed_day28_ESMM31.csv');
@@ -45,24 +52,47 @@ validc = ~ismissing(tsKey_cost) & ~isnan(Tc.latitude) & ~isnan(Tc.longitude) & .
 Tc = Tc(validc,:);
 tsKey_cost = tsKey_cost(validc);
 
-cost_alt_mask_all = (Tc.altitude == COST_ALT_FT);
+% Inclusive altitude band (ft)
+cost_alt_mask_all = (Tc.altitude >= lower_ft) & (Tc.altitude <= upper_ft);
 
-%% ============= Create cost obstacles for the selected hour ==============
+%% ============= Create cost obstacles for each hour in [t0_dt, t1_dt] ==============
 threshold  = 0.700;
 conn       = 4;
 
-key0 = local_cost_key_utc(t0_dt);
-in_hour_cost = (tsKey_cost == key0) & cost_alt_mask_all;
+keys_win = local_cost_keys_utc_window(t0_dt, t1_dt);
 
-polygons = polyshape.empty(0,1);
+%cost in the beginnig of the hour defines the obstacles for this hour
+T = numel(keys_win)-1; % last time is not inkcluded
 
-if any(in_hour_cost)
-    Th = Tc(in_hour_cost, :);
+cost_obstacles = cell(T, 1);
 
-    allLatitudes  = sort(unique(Th.latitude));
-    allLongitudes = sort(unique(Th.longitude));
+for it = 1:T
+    key_t = keys_win(it);
 
-    if ~isempty(allLatitudes) && ~isempty(allLongitudes)
+    in_time_cost = (tsKey_cost == key_t) & cost_alt_mask_all;
+
+    cost_obstacles{it} = cell(1, 0);
+    if ~any(in_time_cost)
+        continue
+    end
+
+    Th_all = Tc(in_time_cost, :);
+    alts = sort(unique(Th_all.altitude));
+
+    tmp = {};
+    for ia = 1:numel(alts)
+        alt_ft = alts(ia);
+        Th = Th_all(Th_all.altitude == alt_ft, :);
+        if isempty(Th)
+            continue
+        end
+
+        allLatitudes  = sort(unique(Th.latitude));
+        allLongitudes = sort(unique(Th.longitude));
+        if isempty(allLatitudes) || isempty(allLongitudes)
+            continue
+        end
+
         [tfLat, latIdx] = ismember(Th.latitude,  allLatitudes);
         [tfLon, lonIdx] = ismember(Th.longitude, allLongitudes);
         ok = tfLat & tfLon;
@@ -122,16 +152,12 @@ if any(in_hour_cost)
                 continue
             end
 
-            polygons(end+1,1) = pg;
+            tmp{end+1} = struct('pgon', pg, 'altitude', alt_ft);
         end
     end
-end
 
-cost_obstacles = {};
-if ~isempty(polygons)
-    cost_obstacles = cell(numel(polygons), 1);
-    for i = 1:numel(polygons)
-        cost_obstacles{i} = struct('pgon', polygons(i));
+    if ~isempty(tmp)
+        cost_obstacles{it} = reshape(tmp, 1, []);
     end
 end
 
@@ -145,4 +171,26 @@ try
 catch
 end
 key = string(datestr(tUTC, 'yyyy-mm-dd HH:MM:SS')) + "+00:00";
+end
+
+function keys = local_cost_keys_utc_window(t0_dt, t1_dt)
+try
+    t0_dt.TimeZone = "UTC";
+catch
+end
+try
+    t1_dt.TimeZone = "UTC";
+catch
+end
+
+t0h = dateshift(t0_dt, 'start', 'hour');
+t1h = dateshift(t1_dt, 'start', 'hour');
+
+if t1h < t0h
+    keys = string.empty(0,1);
+    return
+end
+
+tvec = (t0h:hours(1):t1h).';
+keys = string(datestr(tvec, 'yyyy-mm-dd HH:MM:SS')) + "+00:00";
 end

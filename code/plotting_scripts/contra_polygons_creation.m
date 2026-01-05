@@ -3,7 +3,6 @@ clear; clc;
 %% ------------------------ Paths / settings ------------------------------
 csv_file = fullfile('.', 'code_input', 'grid_era5_smoothed_day28_ESMM31.csv');
 
-% HARD-CODED threshold per request
 threshold  = 0.7;
 
 conn       = 4;      % 4- or 8-connectivity
@@ -48,7 +47,7 @@ lines = splitlines(strtrim(raw_data));
 tokens = {};
 for i = 1:numel(lines)
     if strlength(strtrim(lines(i))) == 0, continue; end
-    tokens = [tokens; cellstr(split(strtrim(lines(i))))]; %#ok<AGROW>
+    tokens = [tokens; cellstr(split(strtrim(lines(i))))];
 end
 tokens = tokens(~cellfun(@isempty, tokens));
 

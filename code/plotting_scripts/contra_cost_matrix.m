@@ -9,7 +9,7 @@ opts.VariableNamingRule = "preserve";
 
 disp(opts.VariableNames);
 
-% Exact match using char vectors (most reliable)
+% Exact match using char vectors
 iTs = find(strcmpi(opts.VariableNames, 'timestamp'), 1);
 if isempty(iTs)
     error("No variable named 'timestamp' found in opts.VariableNames.");

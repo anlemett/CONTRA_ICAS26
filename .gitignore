@@ -1,4 +1,5 @@
 *.txt
+*.xlsx
 *.csv
 *.parquet
 *.json

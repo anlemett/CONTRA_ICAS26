@@ -38,9 +38,12 @@ for a = 1:total_ac
 end
 
 total_ac = sum(sum(Wij));
+disp(total_ac);
 
 Wj = sum(Wij)/total_ac;
 Wij = Wij/total_ac;
+
+%disp(Wij);
 
 end
 

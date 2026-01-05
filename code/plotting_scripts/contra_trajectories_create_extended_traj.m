@@ -119,10 +119,10 @@ max_extend_steps     = 200; % safety cap per direction
 
 in_sector_all = inpolygon(lon, lat, sector_lon, sector_lat);
 
-% Build an extended trajectory table (same variable names as input T).
+% Build an extended trajectory table (same variable names as input T)
 varNames = T.Properties.VariableNames;
 
-% Build an extended trajectory table (same variable names as input T).
+% Build an extended trajectory table (same variable names as input T)
 Tout = T([],:); % empty table with same variables
 
 for i = 1:numel(uIDs)
@@ -188,8 +188,8 @@ for i = 1:numel(uIDs)
     p = [lon_seg(1), lat_seg(1)];
     for s = 1:max_extend_steps
         p = p - v_b;  % step (in same units as lon/lat)
-        lon_b(end+1,1) = p(1); %#ok<AGROW>
-        lat_b(end+1,1) = p(2); %#ok<AGROW>
+        lon_b(end+1,1) = p(1);
+        lat_b(end+1,1) = p(2);
         inside = inpolygon(p(1), p(2), sector_lon, sector_lat);
         if ~inside
             n_out = n_out + 1;
@@ -209,8 +209,8 @@ for i = 1:numel(uIDs)
     p = [lon_seg(end), lat_seg(end)];
     for s = 1:max_extend_steps
         p = p + v_f;  % step
-        lon_f(end+1,1) = p(1); %#ok<AGROW>
-        lat_f(end+1,1) = p(2); %#ok<AGROW>
+        lon_f(end+1,1) = p(1);
+        lat_f(end+1,1) = p(2);
         inside = inpolygon(p(1), p(2), sector_lon, sector_lat);
         if ~inside
             n_out = n_out + 1;
@@ -225,7 +225,7 @@ for i = 1:numel(uIDs)
     lat_ext = [lat_b; lat_seg; lat_f];
     t_ext   = [t_b;   t_seg;   t_f];
 
-    % Create an output block that preserves ALL original columns (incl. altitude).
+    % Create an output block that preserves all original columns
     n_b = numel(lon_b);
     n_s = numel(lon_seg);
     n_f = numel(lon_f);
@@ -244,7 +244,7 @@ for i = 1:numel(uIDs)
     block.latitude  = arrayfun(@(x)sprintf('%.8f', x), lat_ext, 'UniformOutput', false);
     block.longitude = arrayfun(@(x)sprintf('%.8f', x), lon_ext, 'UniformOutput', false);
 
-    Tout = [Tout; block]; %#ok<AGROW>
+    Tout = [Tout; block];
 end
 
 % Save extended trajectories CSV next to the input file
@@ -332,8 +332,8 @@ function [lon_ext, lat_ext, t_ext] = local_extend_polyline_across_border(lon_seg
     lon_b = []; lat_b = [];
     for k = 1:max_steps
         p = p + u_back .* s_back;
-        lon_b(end+1,1) = p(1); %#ok<AGROW>
-        lat_b(end+1,1) = p(2); %#ok<AGROW>
+        lon_b(end+1,1) = p(1);
+        lat_b(end+1,1) = p(2);
         inside = inpolygon(p(1), p(2), sector_lon, sector_lat);
         if ~inside
             n_out = n_out + 1;
@@ -352,8 +352,8 @@ function [lon_ext, lat_ext, t_ext] = local_extend_polyline_across_border(lon_seg
     lon_f = []; lat_f = [];
     for k = 1:max_steps
         p = p + u_forw .* s_forw;
-        lon_f(end+1,1) = p(1); %#ok<AGROW>
-        lat_f(end+1,1) = p(2); %#ok<AGROW>
+        lon_f(end+1,1) = p(1);
+        lat_f(end+1,1) = p(2);
         inside = inpolygon(p(1), p(2), sector_lon, sector_lat);
         if ~inside
             n_out = n_out + 1;

@@ -21,4 +21,6 @@ end
 
 Wij_m1 = Wij_m1/(sum(sum(Wij_m1)));
 
+%disp(Wij_m1);
+
 end

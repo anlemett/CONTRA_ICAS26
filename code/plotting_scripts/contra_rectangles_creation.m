@@ -67,7 +67,7 @@ fid=fopen(full_file_name,'w');
 thr = 0.700;
 mask = Tf.cost > thr;
 
-% Grid spacing (degrees). Works for regular lat/lon grids.
+% Grid spacing (degrees). Works for regular lat/lon grids
 dlat = median(diff(allLatitudes));
 dlon = median(diff(allLongitudes));
 
@@ -85,7 +85,7 @@ for k = 1:nSel
     lon = Tf.longitude(i);
     cst = Tf.cost(i);
 
-    % Rectangle corners (lon,lat). Close ring.
+    % Rectangle corners (lon,lat), close ring
     coords = [ ...
         lon - dlon/2, lat - dlat/2; ...
         lon + dlon/2, lat - dlat/2; ...

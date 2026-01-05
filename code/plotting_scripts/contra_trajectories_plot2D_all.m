@@ -130,7 +130,7 @@ end
 % Sector boundary on top
 plot(ax, sector_lon, sector_lat, 'LineWidth', 2);
 
-adjacent_sectors = function_create_adjacent_sectors()
+adjacent_sectors = function_create_adjacent_sectors();
 plot_dummy_adjacent_sectors(ax, adjacent_sectors)
 
 xlabel(ax, 'Longitude');
