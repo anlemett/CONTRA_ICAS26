@@ -1,9 +1,11 @@
 
-function Wmincut = function_Wmincut_draw(sector_pgon, T, B, weather_polygons)
+function Wmincut = function_Wmincut_draw(sector_pgon, T, B, weather_polygons, t)
 
 DO_SAVE = true;
-OUT_DIR = fullfile('.', 'figures', 'mincut');
 DPI     = 200;
+
+SUBDIR = num2str(t); % subfolder for time
+OUT_DIR = fullfile('.', 'figures', 'mincut', SUBDIR);
 
 if DO_SAVE && ~exist(OUT_DIR,'dir')
     mkdir(OUT_DIR);

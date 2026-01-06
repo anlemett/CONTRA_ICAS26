@@ -1,4 +1,4 @@
-function AFCR_i = function_AFCR_j_onlyweigths(weather_polygons, sector_ab, flows_j, Wij, a_band)
+function AFCR_i = function_AFCR_j_onlyweigths(weather_polygons, sector_ab, flows_j, Wij, a_band, t)
 
 % [sector_ab, a_band, flows_j] = function_flows_sector_j(k, main_sectors, adjacent_sectors);
 
@@ -27,7 +27,7 @@ for i = vec_ab'
             [~, j1] = ismember(all_triplets(j,:), trip_j, 'rows');
 
             %Wmincut = function_Wmincut(sector_ab{i}, flows_j{i}(j1).T, flows_j{i}(j1).B, w_poly); % Mincut at altitude band i with weather areas
-            Wmincut = function_Wmincut_wrapper(sector_ab{i}, flows_j{i}(j1).T, flows_j{i}(j1).B, w_poly, h); % Mincut at altitude band i with weather areas
+            Wmincut = function_Wmincut_wrapper(sector_ab{i}, flows_j{i}(j1).T, flows_j{i}(j1).B, w_poly, h, t); % Mincut at altitude band i with weather areas
 %             Omincut = function_Omincut(sector_ab{i}, flows_j{i}(j1).T, flows_j{i}(j1).B); % Mincut at altitude band i without weather areas
             Omincut = flows_j{i}(j1).Omincut;
             

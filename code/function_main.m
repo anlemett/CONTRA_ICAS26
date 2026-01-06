@@ -47,6 +47,7 @@ if ~isfield(G, "features") || isempty(G.features)
 end
 
 feat = G.features(1);
+% Decrease sector altitude band to 1000 feet
 feat.properties.LOWER_LIMIT_VALUE = TARGET_FL - 5;
 feat.properties.UPPER_LIMIT_VALUE = TARGET_FL + 5;
 main_sectors = cell(1,1);
@@ -105,7 +106,7 @@ AC = function_read_trajectories();
         
                 for m = 1 % For one member
                     %disp([k,t,m])
-                    ASCR_k = function_ASCR_k(sector_ab, flows_j, weather_polygons{t,m}, Wij, a_band);
+                    ASCR_k = function_ASCR_k(sector_ab, flows_j, weather_polygons{t,m}, Wij, a_band, t);
                     ASCR{k}(t,m) = ASCR_k;
                 end
         

@@ -6,6 +6,7 @@
 *.geojson
 *.png
 *.jpg
+*.fig
 *.zip
 code/figures
 

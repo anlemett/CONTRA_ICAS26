@@ -1,4 +1,4 @@
-function Wmincut = function_Wmincut_wrapper(sector_pgon, T, B, cost_polygons, h)
+function Wmincut = function_Wmincut_wrapper(sector_pgon, T, B, cost_polygons, h, t)
 % Wrapper for mincut computation:
 % - If global PLOT_MINCUT is true, it uses contra_function_Wmincut_draw
 %   but ONLY for the selected altitude band PLOT_MINCUT_FL.
@@ -30,7 +30,7 @@ if PLOT_MINCUT
 end
 
 if doPlot
-    Wmincut = function_Wmincut_draw(sector_pgon, T, B, cost_polygons);
+    Wmincut = function_Wmincut_draw(sector_pgon, T, B, cost_polygons, t);
     drawnow; % ensure figures render immediately
 else
     Wmincut = function_Wmincut(sector_pgon, T, B, cost_polygons);

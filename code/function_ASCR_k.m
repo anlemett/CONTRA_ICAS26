@@ -1,8 +1,8 @@
-function [ASCR_k, M] = function_ASCR_k(sector_ab, flows_j, weather_polygons, Wij, a_band)
+function [ASCR_k, M] = function_ASCR_k(sector_ab, flows_j, weather_polygons, Wij, a_band, t)
 
 % Compute ASCR (Available Sector Capacity Ratio) of sector k
 
-AFCR_i = function_AFCR_j_onlyweigths(weather_polygons, sector_ab, flows_j, Wij, a_band);
+AFCR_i = function_AFCR_j_onlyweigths(weather_polygons, sector_ab, flows_j, Wij, a_band, t);
 
 % a) Most restrictive altitude
 % AFCR = min(AFCR_i);
