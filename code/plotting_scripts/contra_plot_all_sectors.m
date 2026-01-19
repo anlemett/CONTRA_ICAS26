@@ -1,4 +1,5 @@
 %% Plot all sectors from GeoJSON files (script, not a function)
+clear; clc;
 
 % Folder containing this script
 thisFileDir = fileparts(mfilename('fullpath'));
@@ -15,7 +16,8 @@ sector_files = {
     'ESMM61.geojson'
     'ESMM91.geojson'
     'ESMMW1.geojson'
-    'DENMARK_DUMMY.geojson'
+    %'DENMARK_DUMMY.geojson'
+    'KOBENHAVN_CTA_A.geojson'
 };
 
 % Figure setup
@@ -89,6 +91,9 @@ for f = 1:numel(sector_files)
             'HorizontalAlignment','center', 'VerticalAlignment','middle');
     end
 end
+
+xl = xlim;          % get current x-axis limits [xmin xmax]
+xlim([xl(1)-1, xl(2)]);
 
 axis equal;
 hold off;

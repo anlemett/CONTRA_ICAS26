@@ -28,6 +28,8 @@ f1=figure; hold on
 plot(sector_pgon_xy)
 plot(B_x, B_y, 'Linewidth', 2, 'Color', 'r', 'Marker', 'x')
 plot(T_x, T_y, 'Linewidth', 2, 'Color', 'b', 'Marker', 'o')
+%plot(B_x, B_y, 'Linewidth', 2, 'Color', 'b', 'Marker', 'x') % just for plotting one case
+%plot(T_x, T_y, 'Linewidth', 2, 'Color', 'r', 'Marker', 'o') % just for plotting one case
 
 axis equal;
 axis off;

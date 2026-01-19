@@ -2,9 +2,9 @@ clear; clc; clear function_Wmincut_draw;
 warning('off');
 
 global PLOT_MINCUT PLOT_MINCUT_FL TARGET_FL
-PLOT_MINCUT    = false;
-PLOT_MINCUT_FL = 370;
-TARGET_FL        = 370;
+PLOT_MINCUT    = true;
+PLOT_MINCUT_FL = 380;
+TARGET_FL        = 380;
 
 tic
 [ASCR, sector_names, sector_time, sector_data] = function_main();

@@ -3,7 +3,7 @@
 *.csv
 *.parquet
 *.json
-*.geojson
+*.fig
 *.png
 *.jpg
 *.fig
